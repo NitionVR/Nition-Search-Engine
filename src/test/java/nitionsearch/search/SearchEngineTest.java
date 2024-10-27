@@ -10,6 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SearchEngineTest {
     private SearchEngine searchEngine;
+    private final String EXAMPLE_PAGE_URL="http://example.com";
+    private final String ANOTHER_EXAMPLE_PAGE_URL = "http://anotherexample.com";
 
     @BeforeEach
     public void setUp() {
@@ -18,7 +20,7 @@ public class SearchEngineTest {
 
     @Test
     public void testSingleTermSearch() {
-        searchEngine.addPage(new Page(1, "Nition search Engine Project"));
+        searchEngine.addPage(new Page(1,EXAMPLE_PAGE_URL, "Nition search Engine Project"));
         List<Page> results = searchEngine.search("search");
 
         assertEquals(1, results.size(), "Expected 1 result for single term search");
@@ -27,8 +29,8 @@ public class SearchEngineTest {
 
     @Test
     public void testMultiTermSearchWithProximityScores() {
-        searchEngine.addPage(new Page(1, "apple bad banana apple"));
-        searchEngine.addPage(new Page(2, "apple banana orange bad apple"));
+        searchEngine.addPage(new Page(1, EXAMPLE_PAGE_URL,"apple bad banana apple"));
+        searchEngine.addPage(new Page(2,ANOTHER_EXAMPLE_PAGE_URL, "apple banana orange bad apple"));
 
         List<Page> results = searchEngine.search("bad apple");
 
@@ -39,7 +41,7 @@ public class SearchEngineTest {
 
     @Test
     public void testNoResults() {
-        searchEngine.addPage(new Page(1, "apple banana orange"));
+        searchEngine.addPage(new Page(1,EXAMPLE_PAGE_URL, "apple banana orange"));
         List<Page> results = searchEngine.search("grape");
 
         assertEquals(0, results.size(), "Expected no results for the query 'grape'");
@@ -47,8 +49,8 @@ public class SearchEngineTest {
 
     @Test
     public void testMultipleOccurrencesOfTerms() {
-        searchEngine.addPage(new Page(1, "apple apple banana apple"));
-        searchEngine.addPage(new Page(2, "apple banana"));
+        searchEngine.addPage(new Page(1,EXAMPLE_PAGE_URL, "apple apple banana apple"));
+        searchEngine.addPage(new Page(2,ANOTHER_EXAMPLE_PAGE_URL, "apple banana"));
 
         List<Page> results = searchEngine.search("apple");
         System.out.println(results);
@@ -58,8 +60,8 @@ public class SearchEngineTest {
 
     @Test
     public void testDifferentWordOrders() {
-        searchEngine.addPage(new Page(1, "bad apple is tasty"));
-        searchEngine.addPage(new Page(2, "apple is bad but good"));
+        searchEngine.addPage(new Page(1,EXAMPLE_PAGE_URL, "bad apple is tasty"));
+        searchEngine.addPage(new Page(2,ANOTHER_EXAMPLE_PAGE_URL, "apple is bad but good"));
 
         List<Page> results = searchEngine.search("apple bad");
 
@@ -68,8 +70,8 @@ public class SearchEngineTest {
 
     @Test
     public void testExactPhraseSearch() {
-        searchEngine.addPage(new Page(1, "bad apple pie"));
-        searchEngine.addPage(new Page(2, "apple pie is bad"));
+        searchEngine.addPage(new Page(1,EXAMPLE_PAGE_URL,"bad apple pie"));
+        searchEngine.addPage(new Page(2,ANOTHER_EXAMPLE_PAGE_URL, "apple pie is bad"));
 
         List<Page> results = searchEngine.search("bad apple pie");
 
@@ -79,8 +81,8 @@ public class SearchEngineTest {
 
     @Test
     public void testIrrelevantTerms() {
-        searchEngine.addPage(new Page(1, "apple bad banana"));
-        searchEngine.addPage(new Page(2, "orange pear grape"));
+        searchEngine.addPage(new Page(1,EXAMPLE_PAGE_URL, "apple bad banana"));
+        searchEngine.addPage(new Page(2,ANOTHER_EXAMPLE_PAGE_URL, "orange pear grape"));
 
         List<Page> results = searchEngine.search("bad apple pear");
         System.out.println(results);
@@ -90,8 +92,8 @@ public class SearchEngineTest {
 
     @Test
     public void testCaseSensitivity() {
-        searchEngine.addPage(new Page(1, "Apple Bad Banana"));
-        searchEngine.addPage(new Page(2, "apple bad banana"));
+        searchEngine.addPage(new Page(1,EXAMPLE_PAGE_URL, "Apple Bad Banana"));
+        searchEngine.addPage(new Page(2,ANOTHER_EXAMPLE_PAGE_URL, "apple bad banana"));
 
         List<Page> results = searchEngine.search("apple");
         assertEquals(2, results.size(), "Expected 2 results for the query 'apple'");
@@ -99,8 +101,8 @@ public class SearchEngineTest {
 
     @Test
     public void testSimilarContentRanking() {
-        searchEngine.addPage(new Page(1, "apple banana apple"));
-        searchEngine.addPage(new Page(2, "apple banana apple pie"));
+        searchEngine.addPage(new Page(1,EXAMPLE_PAGE_URL, "apple banana apple"));
+        searchEngine.addPage(new Page(2,ANOTHER_EXAMPLE_PAGE_URL, "apple banana apple pie"));
 
         List<Page> results = searchEngine.search("apple banana");
 

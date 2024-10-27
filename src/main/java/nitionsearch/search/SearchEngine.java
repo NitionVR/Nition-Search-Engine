@@ -19,13 +19,20 @@ public class SearchEngine {
     }
 
     public void addPage(Page page) {
-        pages.add(page);
-        String content = page.getContent().toLowerCase();
-        String[] words = content.split("\\s+");
-
-        for (int position = 0; position < words.length; position++) {
-            suffixTrie.insert(words[position], page.getId(), position);
+        if (canAddPage(page)) {
+            pages.add(page);
+            String content = page.getContent().toLowerCase();
+            String[] words = content.split("\\s+");
+            String url = page.getUrl();
+            for (int position = 0; position < words.length; position++) {
+                suffixTrie.insert(words[position], page.getId(), position);
+            }
         }
+    }
+
+    public boolean canAddPage(Page page){
+        return (!pages.stream().anyMatch(p -> p.getUrl().equals(page.getUrl()))
+        && !page.getContent().trim().isEmpty());
     }
 
     public List<Page> search(String query) {
@@ -96,7 +103,7 @@ public class SearchEngine {
 
     private List<TermOccurrence> getTermOccurrences(Page page, String[] terms) {
         List<TermOccurrence> occurrences = new ArrayList<>();
-
+        System.out.println(suffixTrie);
         for (String term : terms) {
             Map<Integer, List<Integer>> termOccurrences = suffixTrie.search(term.toLowerCase());
             for (Map.Entry<Integer, List<Integer>> entry : termOccurrences.entrySet()) {

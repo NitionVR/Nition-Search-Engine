@@ -84,7 +84,7 @@ public class SearchEngineTest {
 
         List<Page> results = searchEngine.search("bad apple pear");
         System.out.println(results);
-        assertEquals(1, results.size(), "Expected 2 result for the query 'bad apple pear'");
+        assertEquals(1, results.size(), "Expected 1 result for the query 'bad apple pear'");
         assertEquals(1, results.get(0).getId(), "Expected page ID 1 as the only relevant result");
     }
 
@@ -94,7 +94,6 @@ public class SearchEngineTest {
         searchEngine.addPage(new Page(2, "apple bad banana"));
 
         List<Page> results = searchEngine.search("apple");
-
         assertEquals(2, results.size(), "Expected 2 results for the query 'apple'");
     }
 

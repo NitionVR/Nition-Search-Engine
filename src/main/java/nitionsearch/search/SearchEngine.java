@@ -46,7 +46,7 @@ public class SearchEngine {
             scores = calculateMultiTermScores(terms);
         }
 
-       return rankPages(scores);
+       return rankPagesByScore(scores);
     }
 
     private Map<Page, Integer> calculateSingleTermScores (String [] searchTerms){
@@ -117,12 +117,27 @@ public class SearchEngine {
         return occurrences;
     }
 
+    /**
+     * Calculates proximity score for term occurrences.
+     *
+     * @param occurrences Term occurrences.
+     * @param terms Search terms.
+     * @return Proximity score.
+     */
     private int calculateProximityScore(List<TermOccurrence> occurrences, String[] terms) {
         int score = calculateMatchingTermsScore(occurrences, terms);
         score += calculateProximityBonus(occurrences, terms);
         return score;
     }
 
+    /**
+     * Calculates proximity score for matching terms in the occurrences.
+     * <p>
+     * This method rewards occurrences that contain all search terms.
+     * @param occurrences Term occurrences.
+     * @param terms Search terms.
+     * @return Proximity score.
+     */
     private int calculateMatchingTermsScore(List<TermOccurrence> occurrences, String[] terms) {
         Map<String, Boolean> termMap = Arrays.stream(terms)
                 .collect(Collectors.toMap(Function.identity(), term -> Boolean.TRUE));
@@ -132,6 +147,14 @@ public class SearchEngine {
                 .count() * PROXIMITY_SCORE_BONUS;
     }
 
+    /**
+     * Calculates the proximity bonus score for term occurrences.
+     * <p>
+     * This method rewards occurrences where search terms appear close to each other.
+     * @param occurrences Term occurrences.
+     * @param terms Search terms.
+     * @return Proximity score.
+     */
     private int calculateProximityBonus(List<TermOccurrence> occurrences, String[] terms) {
         int[] termPositions = new int[terms.length];
         Arrays.fill(termPositions, -1);
@@ -153,15 +176,27 @@ public class SearchEngine {
         return score;
     }
 
+    /**
+     * Calculates score for term distance score.
+     * <p>
+     * This method rewards smaller distances between search terms.
+     * @param termPositions Term occurrences.
+     * @param maxDistance Search terms.
+     * @return Proximity score.
+     */
     private int calculateTermDistanceScore(int[] termPositions, int maxDistance) {
         int score = 0;
+        // iterate over the term pairs to calculate score based on distance
         for (int i = 0; i < termPositions.length; i++) {
             for (int j = 0; j < termPositions.length; j++) {
                 if (i != j && termPositions[j] != -1) {
                     int distance = Math.abs(termPositions[i] - termPositions[j]);
+                    // reward adjacent terms with maximum bonus :)
                     if (distance == 1) {
                         score += PROXIMITY_SCORE_BONUS;
-                    } else if (distance <= maxDistance) {
+                    }
+                    // decrease score for larger distances
+                    else if (distance <= maxDistance) {
                         score += (maxDistance - distance) / 2;
                     }
                 }
@@ -170,12 +205,21 @@ public class SearchEngine {
         return score;
     }
 
-
-    private List<Page> rankPages(Map<Page, Integer> scores){
+    /**
+     * Ranks web pages based on their search scores.
+     * <p>
+     * This method sorts pages in descending order of their scores and
+     * filters out pages with no matching terms.
+     * @param scores Map of pages to their corresponding search scores.
+     * @return List of ranked pages.
+     */
+    private List<Page> rankPagesByScore(Map<Page, Integer> scores){
         List<Page> results = new ArrayList<>(scores.keySet());
+
+        // prioritize page relevance by sorting scores in descending order
         results.sort((p1, p2) -> scores.get(p2) - scores.get(p1));
 
-        // Filter out pages with no matching terms
+        // remove pages with no matching terms from the result
         results = results.stream()
                 .filter(page -> scores.get(page) > 0)
                 .collect(Collectors.toList());

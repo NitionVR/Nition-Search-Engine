@@ -1,6 +1,5 @@
-package crawler;
+package nitionsearch.crawler;
 
-import nitionsearch.crawler.WebCrawler;
 import nitionsearch.search.SearchEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

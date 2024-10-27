@@ -28,36 +28,13 @@ public class SearchEngine {
 
     public List<Page> search(String query) {
         String[] terms = query.split(" ");
-        Map<Page, Integer> scores = new HashMap<>();
+        Map<Page, Integer> scores;
 
         if (terms.length == 1) {
             // Handle single-term search
-            for (Page page : pages) {
-                List<TermOccurrence> occurrences = getTermOccurrences(page, terms);
-                int score = calculateProximityScore(occurrences, terms);
-                scores.put(page, score);
-            }
+            scores = calculateSingleTermScores(terms);
         } else {
-            // Handle multi-term search
-            for (Page page : pages) {
-                Set<String> pageTerms = getPageTerms(page, terms);
-                int matchingTerms = (int) pageTerms.stream()
-                        .filter(Arrays.asList(terms)::contains)
-                        .count();
-
-                // Only consider pages with at least two matching terms
-                if (matchingTerms >= 2) {
-                    List<TermOccurrence> occurrences = getTermOccurrences(page, terms);
-                    int score = calculateProximityScore(occurrences, terms);
-
-                    // Add bonus for exact phrase match
-                    if (isExactPhraseMatch(page, terms)) {
-                        score += 100;
-                    }
-
-                    scores.put(page, score);
-                }
-            }
+            scores = calculateMultiTermScores(terms);
         }
 
         List<Page> results = new ArrayList<>(scores.keySet());
@@ -69,6 +46,42 @@ public class SearchEngine {
                 .collect(Collectors.toList());
 
         return results;
+    }
+
+    private Map<Page, Integer> calculateSingleTermScores (String [] searchTerms){
+        Map<Page, Integer> scores = new HashMap<>();
+
+        for (Page page: pages){
+            List<TermOccurrence> occurrences = getTermOccurrences(page,searchTerms);
+            int score = calculateProximityScore(occurrences,searchTerms);
+            scores.put(page,score);
+        }
+        return scores;
+    }
+
+    private Map<Page, Integer> calculateMultiTermScores (String[] searchTerms) {
+        Map<Page, Integer> scores = new HashMap<>();
+
+        for (Page page : pages) {
+            Set<String> pageTerms = getPageTerms(page, searchTerms);
+            int matchingTerms = (int) pageTerms.stream()
+                    .filter(Arrays.asList(searchTerms)::contains)
+                    .count();
+
+            // Only consider pages with at least two matching terms
+            if (matchingTerms >= 2) {
+                List<TermOccurrence> occurrences = getTermOccurrences(page, searchTerms);
+                int score = calculateProximityScore(occurrences, searchTerms);
+
+                // Add bonus for exact phrase match
+                if (isExactPhraseMatch(page, searchTerms)) {
+                    score += 100;
+                }
+
+                scores.put(page, score);
+            }
+        }
+        return scores;
     }
 
 

@@ -1,30 +1,28 @@
 package nitionsearch.search;
 
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class SuffixTrie {
-    private final TrieNode root = new TrieNode();
+    private TrieNode root = new TrieNode();
 
-    public void insert(String word, int position){
-        TrieNode node = root;
-
-        for (char c:word.toCharArray()){
-            node = node.children.computeIfAbsent(c, k -> new TrieNode());
+    public void insert(String word, int pageId, int position) {
+        TrieNode currentNode = root;
+        for (char letter : word.toCharArray()) {
+            currentNode = currentNode.getChildren().computeIfAbsent(letter, c -> new TrieNode());
         }
-        node.positions.add(position);
+        currentNode.addOccurrence(pageId, position);
     }
 
-    public List<Integer> search(String word){
-        TrieNode node = root;
-
-        for (char c:word.toCharArray()){
-            node = node.children.get(c);
-            if (node == null)
-                return new ArrayList<>();
+    public Map<Integer, List<Integer>> search(String term) {
+        TrieNode currentNode = root;
+        for (char letter : term.toCharArray()) {
+            currentNode = currentNode.getChildren().get(letter);
+            if (currentNode == null) {
+                return Collections.emptyMap();
+            }
         }
-        return node.positions;
-
+        return currentNode.getOccurrences();
     }
+
 }

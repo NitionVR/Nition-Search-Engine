@@ -25,4 +25,23 @@ public class SuffixTrie {
         return currentNode.getOccurrences();
     }
 
+    @Override
+    public String toString() {
+        StringBuilder builder = new StringBuilder();
+        toStringHelper(root, new StringBuilder(), builder);
+        return builder.toString();
+    }
+
+    private void toStringHelper(TrieNode node, StringBuilder currentWord, StringBuilder result) {
+        if (node.getOccurrences() != null && !node.getOccurrences().isEmpty()) {
+            result.append(currentWord).append(": ").append(node.getOccurrences()).append("\n");
+        }
+
+        for (Map.Entry<Character, TrieNode> entry : node.getChildren().entrySet()) {
+            currentWord.append(Character.toLowerCase(entry.getKey()));
+            toStringHelper(entry.getValue(), currentWord, result);
+            currentWord.deleteCharAt(currentWord.length() - 1);
+        }
+    }
+
 }

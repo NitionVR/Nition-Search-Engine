@@ -103,7 +103,6 @@ public class SearchEngine {
 
     private List<TermOccurrence> getTermOccurrences(Page page, String[] terms) {
         List<TermOccurrence> occurrences = new ArrayList<>();
-        System.out.println(suffixTrie);
         for (String term : terms) {
             Map<Integer, List<Integer>> termOccurrences = suffixTrie.search(term.toLowerCase());
             for (Map.Entry<Integer, List<Integer>> entry : termOccurrences.entrySet()) {

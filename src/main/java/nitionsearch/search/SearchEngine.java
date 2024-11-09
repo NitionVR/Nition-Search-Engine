@@ -23,9 +23,9 @@ public class SearchEngine {
             pages.add(page);
             String content = page.getContent().toLowerCase();
             String[] words = content.split("\\s+");
-            String url = page.getUrl();
+            UUID pageId = page.getId();
             for (int position = 0; position < words.length; position++) {
-                suffixTrie.insert(words[position], page.getId(), position);
+                suffixTrie.insert(words[position], pageId, position);
             }
         }
     }
@@ -104,9 +104,9 @@ public class SearchEngine {
     private List<TermOccurrence> getTermOccurrences(Page page, String[] terms) {
         List<TermOccurrence> occurrences = new ArrayList<>();
         for (String term : terms) {
-            Map<Integer, List<Integer>> termOccurrences = suffixTrie.search(term.toLowerCase());
-            for (Map.Entry<Integer, List<Integer>> entry : termOccurrences.entrySet()) {
-                int pageId = entry.getKey();
+            Map<UUID, List<Integer>> termOccurrences = suffixTrie.search(term.toLowerCase());
+            for (Map.Entry<UUID, List<Integer>> entry : termOccurrences.entrySet()) {
+                UUID pageId = entry.getKey();
                 for (int position : entry.getValue()) {
                     occurrences.add(new TermOccurrence(pageId, term, position));
                 }

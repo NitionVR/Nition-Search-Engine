@@ -1,17 +1,19 @@
 package nitionsearch.model;
 
+import java.util.UUID;
+
 public class TermOccurrence {
-    private final int documentId;
+    private final UUID documentId;
     private final String term;
     private final int position;
 
-    public TermOccurrence(int documentId, String term, int position) {
+    public TermOccurrence(UUID documentId, String term, int position) {
         this.documentId = documentId;
         this.term = term;
         this.position = position;
     }
 
-    public int getDocumentId() {
+    public UUID getDocumentId() {
         return documentId;
     }
 

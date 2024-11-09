@@ -1,26 +1,24 @@
 package nitionsearch.model;
 
 import java.util.Objects;
+import java.util.UUID;
 
 public class Page {
-    private final int id;
+    private final UUID id;
     private final String content;
-
     private final String url;
 
-    public Page(int id, String url, String content ){
+    public Page(UUID id, String url, String content ){
         this.id = id;
-        this.url = url;
+        this.url = Objects.requireNonNull(url,"URL cannot be null");
         this.content = content;
     }
 
-    public Page(int id, String content ){
-        this.id = id;
-        this.content = content;
-        url = null;
+    public Page(String url, String content ){
+        this(UUID.randomUUID(),url,content);
     }
 
-    public int getId(){
+    public UUID getId(){
         return id;
     }
 

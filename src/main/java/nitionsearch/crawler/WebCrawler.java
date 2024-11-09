@@ -4,10 +4,11 @@ import nitionsearch.search.SearchEngine;
 import nitionsearch.model.Page;
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.util.UUID;
 
 public class WebCrawler {
     private final SearchEngine searchEngine;
-    private int nextPageId = 0;
+
     public WebCrawler (SearchEngine searchEngine){
         this.searchEngine = searchEngine;
     }
@@ -16,7 +17,8 @@ public class WebCrawler {
         if (!isValidURL(url)) {
             throw new IllegalArgumentException("Invalid URL: " + url);
         }
-        Page page = new Page(nextPageId++, url, content);
+        UUID pageId = UUID.randomUUID();
+        Page page = new Page(pageId, url, content);
         searchEngine.addPage(page);
     }
 

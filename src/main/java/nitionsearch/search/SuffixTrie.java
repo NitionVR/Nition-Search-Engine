@@ -6,7 +6,7 @@ import java.util.*;
 public class SuffixTrie {
     private TrieNode root = new TrieNode();
 
-    public void insert(String word, int pageId, int position) {
+    public void insert(String word, UUID pageId, int position) {
         TrieNode currentNode = root;
         for (char letter : word.toCharArray()) {
             currentNode = currentNode.getChildren().computeIfAbsent(letter, c -> new TrieNode());
@@ -14,7 +14,7 @@ public class SuffixTrie {
         currentNode.addOccurrence(pageId, position);
     }
 
-    public Map<Integer, List<Integer>> search(String term) {
+    public Map<UUID, List<Integer>> search(String term) {
         TrieNode currentNode = root;
         for (char letter : term.toCharArray()) {
             currentNode = currentNode.getChildren().get(letter);

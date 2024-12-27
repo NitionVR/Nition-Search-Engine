@@ -1,4 +1,4 @@
-package nitionsearch.persistence;
+package nitionsearch.persistence.dao;
 
 import nitionsearch.model.Page;
 

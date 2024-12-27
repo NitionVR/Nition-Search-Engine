@@ -1,11 +1,13 @@
-package nitionsearch.persistence;
+package nitionsearch.persistence.dao;
 
 import nitionsearch.model.Page;
+import nitionsearch.persistence.dao.PageDAO;
+import org.springframework.stereotype.Repository;
 
 import java.sql.*;
 import java.util.*;
-import java.util.stream.Collectors;
 
+@Repository
 public class PageDAOImpl implements PageDAO {
     private static final String DB_URL = "jdbc:sqlite:database.db";
 

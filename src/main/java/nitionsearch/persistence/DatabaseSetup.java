@@ -13,7 +13,7 @@ public class DatabaseSetup {
 
     public static void initializeDatabase() {
         String createTableSQL = "CREATE TABLE IF NOT EXISTS internet (" +
-                "id TEXT PRIMARY KEY, " +
+                "id INTEGER PRIMARY KEY, " +  // Original table has int ID
                 "url TEXT NOT NULL, " +
                 "body TEXT NOT NULL);";
 
@@ -29,26 +29,38 @@ public class DatabaseSetup {
         try (Connection connection = DriverManager.getConnection(DB_URL);
              Statement stmt = connection.createStatement()) {
 
-            stmt.execute("ALTER TABLE internet ADD COLUMN temp_uuid TEXT;");
+            // Step 1: Create a new table with a UUID as the primary key
+            String createTempTableSQL = "CREATE TABLE IF NOT EXISTS internet_new (" +
+                    "id TEXT PRIMARY KEY, " +  // New table has UUID ID
+                    "url TEXT NOT NULL, " +
+                    "body TEXT NOT NULL);";
+            stmt.execute(createTempTableSQL);
 
-            String selectSQL = "SELECT rowid FROM internet;";
+            // Step 2: Copy data from the old table to the new one with generated UUIDs
+            String selectSQL = "SELECT id, url, body FROM internet;";
             try (PreparedStatement selectStmt = connection.prepareStatement(selectSQL);
                  ResultSet rs = selectStmt.executeQuery()) {
 
-                String updateSQL = "UPDATE internet SET temp_uuid = ? WHERE rowid = ?;";
-                try (PreparedStatement updateStmt = connection.prepareStatement(updateSQL)) {
+                String insertSQL = "INSERT INTO internet_new (id, url, body) VALUES (?, ?, ?);";
+                try (PreparedStatement insertStmt = connection.prepareStatement(insertSQL)) {
                     while (rs.next()) {
                         String uuid = UUID.randomUUID().toString();
-                        int rowId = rs.getInt("rowid");
-                        updateStmt.setString(1, uuid);
-                        updateStmt.setInt(2, rowId);
-                        updateStmt.executeUpdate();
+                        String url = rs.getString("url");
+                        String body = rs.getString("body");
+
+                        insertStmt.setString(1, uuid);  // Set UUID as new ID
+                        insertStmt.setString(2, url);
+                        insertStmt.setString(3, body);
+                        insertStmt.executeUpdate();
                     }
                 }
             }
 
-            stmt.execute("ALTER TABLE internet DROP COLUMN id;");
-            stmt.execute("ALTER TABLE internet RENAME COLUMN temp_uuid TO id;");
+            // Step 3: Drop the old table
+            stmt.execute("DROP TABLE internet;");
+
+            // Step 4: Rename the new table to replace the old table
+            stmt.execute("ALTER TABLE internet_new RENAME TO internet;");
 
         } catch (SQLException e) {
             e.printStackTrace();

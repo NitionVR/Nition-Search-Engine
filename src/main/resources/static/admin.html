@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nition Search - Admin Panel</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        .stat-card {
+            transition: transform 0.2s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+<!-- Navigation -->
+<nav class="bg-white shadow-sm">
+    <div class="container mx-auto px-6 py-3">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center">
+                <span class="text-xl font-bold text-blue-600">Nition Search Admin</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="/" class="text-gray-600 hover:text-blue-600">Search Interface</a>
+                <a href="#" class="text-gray-600 hover:text-blue-600">Settings</a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<div class="container mx-auto px-6 py-8">
+    <!-- Crawler Control Panel -->
+    <div class="mb-8 bg-white rounded-lg shadow-sm p-6">
+        <h2 class="text-2xl font-semibold mb-4">Crawler Control</h2>
+        <div class="flex items-center space-x-4">
+            <input type="text"
+                   id="seedUrl"
+                   class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="Enter seed URL">
+            <button id="startCrawler"
+                    class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                Start Crawler
+            </button>
+            <button id="stopCrawler"
+                    class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                Stop Crawler
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="stat-card bg-white rounded-lg shadow-sm p-6">
+            <h3 class="text-gray-500 text-sm font-medium">Pages Processed</h3>
+            <p id="pagesProcessed" class="text-2xl font-semibold mt-2">0</p>
+        </div>
+        <div class="stat-card bg-white rounded-lg shadow-sm p-6">
+            <h3 class="text-gray-500 text-sm font-medium">Pages Failed</h3>
+            <p id="pagesFailed" class="text-2xl font-semibold mt-2">0</p>
+        </div>
+        <div class="stat-card bg-white rounded-lg shadow-sm p-6">
+            <h3 class="text-gray-500 text-sm font-medium">Queue Size</h3>
+            <p id="queueSize" class="text-2xl font-semibold mt-2">0</p>
+        </div>
+        <div class="stat-card bg-white rounded-lg shadow-sm p-6">
+            <h3 class="text-gray-500 text-sm font-medium">Crawl Rate</h3>
+            <p id="crawlRate" class="text-2xl font-semibold mt-2">0/sec</p>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Response Codes Chart -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <h3 class="text-lg font-semibold mb-4">Response Codes</h3>
+            <canvas id="responseCodesChart"></canvas>
+        </div>
+        <!-- Crawl Progress Chart -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <h3 class="text-lg font-semibold mb-4">Crawl Progress</h3>
+            <canvas id="crawlProgressChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Recent Logs -->
+    <div class="mt-8 bg-white rounded-lg shadow-sm p-6">
+        <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
+        <div id="logContainer" class="h-64 overflow-y-auto font-mono text-sm">
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const startButton = document.getElementById('startCrawler');
+        const stopButton = document.getElementById('stopCrawler');
+        const seedUrlInput = document.getElementById('seedUrl');
+        let crawlerStatus = 'stopped';
+        let statusUpdateInterval;
+
+        // Initialize charts
+        const responseCodesChart = new Chart(
+            document.getElementById('responseCodesChart'),
+            {
+                type: 'doughnut',
+                data: {
+                    labels: ['200', '404', '500', 'Other'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: [
+                            '#10B981',
+                            '#F59E0B',
+                            '#EF4444',
+                            '#6B7280'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            }
+        );
+
+        const crawlProgressChart = new Chart(
+            document.getElementById('crawlProgressChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Pages Crawled',
+                        data: [],
+                        borderColor: '#3B82F6',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            }
+        );
+
+        // Start crawler
+        startButton.addEventListener('click', async () => {
+            const url = seedUrlInput.value.trim();
+            if (!url) {
+                addLog('Error: Please enter a seed URL');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/crawl', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url })
+                });
+
+                if (response.ok) {
+                    crawlerStatus = 'running';
+                    startStatusUpdates();
+                    addLog(`Started crawling from: ${url}`);
+                    startButton.disabled = true;
+                    stopButton.disabled = false;
+                } else {
+                    addLog('Error starting crawler: ' + await response.text());
+                }
+            } catch (error) {
+                addLog('Error: ' + error.message);
+            }
+        });
+
+        // Stop crawler
+        stopButton.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/crawl/stop', {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    crawlerStatus = 'stopped';
+                    stopStatusUpdates();
+                    addLog('Crawler stopped');
+                    startButton.disabled = false;
+                    stopButton.disabled = true;
+                }
+            } catch (error) {
+                addLog('Error: ' + error.message);
+            }
+        });
+
+        function startStatusUpdates() {
+            statusUpdateInterval = setInterval(updateStatus, 1000);
+        }
+
+        function stopStatusUpdates() {
+            clearInterval(statusUpdateInterval);
+        }
+
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/crawl/status');
+                const data = await response.json();
+
+                // Update statistics
+                document.getElementById('pagesProcessed').textContent = data.processedPages;
+                document.getElementById('pagesFailed').textContent = data.failedPages;
+                document.getElementById('queueSize').textContent = data.queueSize;
+                document.getElementById('crawlRate').textContent = `${data.crawlRate}/sec`;
+
+                // Update charts
+                updateResponseCodesChart(data.responseCodes);
+                updateCrawlProgressChart(data.processedPages);
+
+            } catch (error) {
+                console.error('Error updating status:', error);
+            }
+        }
+
+        function updateResponseCodesChart(responseCodes) {
+            responseCodesChart.data.datasets[0].data = [
+                responseCodes['200'] || 0,
+                responseCodes['404'] || 0,
+                responseCodes['500'] || 0,
+                Object.values(responseCodes).reduce((a, b) => a + b, 0) -
+                ((responseCodes['200'] || 0) + (responseCodes['404'] || 0) + (responseCodes['500'] || 0))
+            ];
+            responseCodesChart.update();
+        }
+
+        function updateCrawlProgressChart(totalPages) {
+            const now = new Date().toLocaleTimeString();
+            crawlProgressChart.data.labels.push(now);
+            crawlProgressChart.data.datasets[0].data.push(totalPages);
+
+            // Keep only last 20 data points
+            if (crawlProgressChart.data.labels.length > 20) {
+                crawlProgressChart.data.labels.shift();
+                crawlProgressChart.data.datasets[0].data.shift();
+            }
+            crawlProgressChart.update();
+        }
+
+        function addLog(message) {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'py-1 border-b border-gray-100';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.insertBefore(logEntry, logContainer.firstChild);
+        }
+
+        // Initial status update
+        updateStatus();
+    });
+</script>
+</body>
+</html>

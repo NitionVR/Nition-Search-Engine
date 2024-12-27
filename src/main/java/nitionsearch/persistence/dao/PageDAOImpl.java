@@ -15,7 +15,7 @@ public class PageDAOImpl implements PageDAO {
 
     @Override
     public Optional<Page> findByUrl(String url) {
-        String query = "SELECT * FROM internet WHERE url = ?";
+        String query = "SELECT * FROM internet_new WHERE url = ?";
         try (Connection connection = getConnection();
              PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, url);
@@ -31,8 +31,8 @@ public class PageDAOImpl implements PageDAO {
 
     @Override
     public Page save(Page page) {
-        String insertSQL = "INSERT INTO internet (id, url, body) VALUES (?, ?, ?)";
-        String updateSQL = "UPDATE internet SET url = ?, body = ? WHERE id = ?";
+        String insertSQL = "INSERT INTO internet_new (id, url, body) VALUES (?, ?, ?)";
+        String updateSQL = "UPDATE internet_new SET url = ?, body = ? WHERE id = ?";
 
         try (Connection connection = getConnection()) {
             if (findById(page.getId()).isPresent()) {
@@ -58,7 +58,7 @@ public class PageDAOImpl implements PageDAO {
 
     @Override
     public Optional<Page> findById(UUID id) {
-        String query = "SELECT * FROM internet WHERE id = ?";
+        String query = "SELECT * FROM internet_new WHERE id = ?";
         try (Connection connection = getConnection();
              PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, id.toString());
@@ -74,7 +74,7 @@ public class PageDAOImpl implements PageDAO {
 
     @Override
     public Collection<Page> searchByKeyword(String keyword) {
-        String query = "SELECT * FROM internet WHERE body LIKE ?";
+        String query = "SELECT * FROM internet_new WHERE body LIKE ?";
         List<Page> result = new ArrayList<>();
         try (Connection connection = getConnection();
              PreparedStatement stmt = connection.prepareStatement(query)) {

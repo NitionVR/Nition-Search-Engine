@@ -1,0 +1,17 @@
+server:
+  port: 8080
+
+crawler:
+  maxDepth: 5
+  threadCount: 4
+  crawlDelayMillis: 1000
+  maxPagesPerDomain: 1000
+  userAgent: NitionBot/1.0
+  connectionTimeout: 5000
+
+spring:
+  datasource:
+    url: jdbc:sqlite:database.db
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect

@@ -1,4 +1,4 @@
-package nitionsearch.crawler;
+package nitionsearch.util;
 
 import java.util.HashMap;
 import java.util.Map;

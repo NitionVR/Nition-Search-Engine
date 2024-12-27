@@ -1,2 +1,4 @@
-package nitionsearch.controller;public class CrawlerController {
+package nitionsearch.controller;
+
+public class CrawlerController {
 }

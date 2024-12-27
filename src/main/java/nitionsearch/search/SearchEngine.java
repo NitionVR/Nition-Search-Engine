@@ -12,10 +12,12 @@ public class SearchEngine {
     private static final int PROXIMITY_SCORE_BONUS = 50;
     private final List<Page> pages;
     private final SuffixTrie suffixTrie;
+    private final SearchCache searchCache;
 
     public SearchEngine() {
         pages = new ArrayList<>();
         suffixTrie = new SuffixTrie();
+        searchCache = new SearchCache(1000,3600000);
     }
 
     public void addPage(Page page) {
@@ -35,18 +37,23 @@ public class SearchEngine {
         && !page.getContent().trim().isEmpty());
     }
 
-    public List<Page> search(String query) {
-        String[] terms = query.split(" ");
-        Map<Page, Integer> scores;
-
-        if (terms.length == 1) {
-            // Handle single-term search
-            scores = calculateSingleTermScores(terms);
-        } else {
-            scores = calculateMultiTermScores(terms);
+    public SearchResult search(String query, SearchOptions options) {
+        // Try cache first
+        Optional<List<Page>> cachedResults = searchCache.get(query);
+        if (cachedResults.isPresent()) {
+            return paginateResults(cachedResults.get(), options);
         }
 
-       return rankPagesByScore(scores);
+        // Perform search
+        String[] terms = preprocessQuery(query);
+        Map<Page, Integer> scores = terms.length == 1 ?
+                calculateSingleTermScores(terms) :
+                calculateMultiTermScores(terms);
+
+        List<Page> results = rankPagesByScore(scores);
+        searchCache.put(query, results);
+
+        return paginateResults(results, options);
     }
 
     private Map<Page, Integer> calculateSingleTermScores (String [] searchTerms){
@@ -123,12 +130,30 @@ public class SearchEngine {
      * @param terms Search terms.
      * @return Proximity score.
      */
-    private int calculateProximityScore(List<TermOccurrence> occurrences, String[] terms) {
-        int score = calculateMatchingTermsScore(occurrences, terms);
-        score += calculateProximityBonus(occurrences, terms);
-        return score;
-    }
 
+    protected int calculateProximityScore(List<TermOccurrence> occurrences, String[] terms) {
+        int baseScore = calculateMatchingTermsScore(occurrences, terms);
+        int proximityBonus = calculateProximityBonus(occurrences, terms);
+
+        // Get the page from occurrences
+        UUID pageId = occurrences.isEmpty() ? null : occurrences.get(0).getDocumentId();
+        if (pageId == null) return 0;
+
+        Optional<Page> page = pages.stream()
+                .filter(p -> p.getId().equals(pageId))
+                .findFirst();
+
+        if (!page.isPresent()) return 0;
+
+        // Normalize score based on document length
+        double contentLength = page.get().getContent().length();
+        double normalizedScore = (baseScore + proximityBonus) / Math.log(contentLength);
+
+        // Add term frequency impact without losing proximity advantage
+        double termFrequencyBonus = calculateTermFrequencyImpact(occurrences, terms);
+
+        return (int)(normalizedScore * (1 + termFrequencyBonus));
+    }
     /**
      * Calculates proximity score for matching terms in the occurrences.
      * <p>
@@ -226,4 +251,78 @@ public class SearchEngine {
         return results;
     }
 
+
+    private String[] preprocessQuery(String query) {
+        // Handle boolean operators
+        if (query.contains(" AND ")) {
+            return handleAndOperator(query);
+        } else if (query.contains(" OR ")) {
+            return handleOrOperator(query);
+        } else if (query.contains(" NOT ")) {
+            return handleNotOperator(query);
+        }
+        return query.toLowerCase().split("\\s+");
+    }
+
+    private SearchResult paginateResults(List<Page> results, SearchOptions options) {
+        int start = (options.getPage() - 1) * options.getPageSize();
+        int end = Math.min(start + options.getPageSize(), results.size());
+
+        if (start >= results.size()) {
+            return new SearchResult(Collections.emptyList(), 0, 0);
+        }
+
+        return new SearchResult(
+                results.subList(start, end),
+                results.size(),
+                (int) Math.ceil((double) results.size() / options.getPageSize())
+        );
+    }
+
+
+
+    private double calculateTermFrequencyImpact(List<TermOccurrence> occurrences, String[] terms) {
+        Map<String, Integer> termFrequencies = new HashMap<>();
+        for (TermOccurrence occurrence : occurrences) {
+            termFrequencies.merge(occurrence.getTerm(), 1, Integer::sum);
+        }
+
+        double avgFrequency = termFrequencies.values().stream()
+                .mapToInt(Integer::intValue)
+                .average()
+                .orElse(0.0);
+
+        return Math.log(1 + avgFrequency);
+    }
+
+    private String[] handleAndOperator(String query) {
+        String[] parts = query.split(" AND ");
+        Set<String> terms = new HashSet<>();
+        for (String part : parts) {
+            terms.addAll(Arrays.asList(part.trim().toLowerCase().split("\\s+")));
+        }
+        return terms.toArray(new String[0]);
+    }
+
+    private String[] handleOrOperator(String query) {
+        String[] parts = query.split(" OR ");
+        Set<String> terms = new HashSet<>();
+        for (String part : parts) {
+            terms.addAll(Arrays.asList(part.trim().toLowerCase().split("\\s+")));
+        }
+        return terms.toArray(new String[0]);
+    }
+
+    private String[] handleNotOperator(String query) {
+        String[] parts = query.split(" NOT ");
+        if (parts.length != 2) {
+            return query.toLowerCase().split("\\s+");
+        }
+        // consider the first part and exclude pages containing the second part
+        return parts[0].trim().toLowerCase().split("\\s+");
+    }
+
+    public int getIndexedPagesCount() {
+        return pages.size();
+    }
 }

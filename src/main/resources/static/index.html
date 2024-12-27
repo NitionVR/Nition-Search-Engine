@@ -1,10 +1,198 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nition Search</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .search-container {
+            transition: transform 0.3s ease;
+        }
+        .search-container.results-shown {
+            transform: translateY(-40vh);
+        }
+        .search-input {
+            transition: all 0.3s ease;
+        }
+        .search-input:focus {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .result-card {
+            transition: transform 0.2s ease;
+        }
+        .result-card:hover {
+            transform: translateY(-2px);
+        }
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid #3B82F6;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
-<body>
-$END$
+<body class="bg-gray-50 min-h-screen">
+<div class="container mx-auto px-4">
+    <!-- Search Container -->
+    <div class="search-container flex flex-col items-center justify-center min-h-screen">
+        <!-- Logo and Title -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-blue-600 mb-2">Nition Search</h1>
+            <p class="text-gray-600">Your Intelligent Search Engine</p>
+        </div>
+
+        <!-- Search Form -->
+        <div class="w-full max-w-2xl">
+            <div class="relative">
+                <input type="text"
+                       id="searchInput"
+                       class="search-input w-full px-5 py-4 rounded-full border-2 border-gray-200 focus:border-blue-500 outline-none text-lg"
+                       placeholder="Type your search query...">
+                <button id="searchButton"
+                        class="absolute right-3 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                    Search
+                </button>
+                <div id="loader" class="loader absolute right-20 top-1/2 transform -translate-y-1/2"></div>
+            </div>
+        </div>
+
+        <!-- Search Results -->
+        <div id="searchResults" class="w-full max-w-4xl mt-8 opacity-0 transition-opacity duration-300">
+            <div id="resultsStats" class="text-sm text-gray-600 mb-4"></div>
+            <div id="resultsList" class="space-y-4"></div>
+            <!-- Pagination -->
+            <div id="pagination" class="flex justify-center items-center space-x-2 mt-8"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const searchResults = document.getElementById('searchResults');
+        const resultsList = document.getElementById('resultsList');
+        const resultsStats = document.getElementById('resultsStats');
+        const pagination = document.getElementById('pagination');
+        const loader = document.getElementById('loader');
+        const searchContainer = document.querySelector('.search-container');
+        let currentPage = 1;
+
+        async function performSearch(query, page = 1) {
+            if (!query.trim()) return;
+
+            // Show loader
+            loader.style.display = 'block';
+
+            try {
+                const response = await fetch(`/api/search?query=${encodeURIComponent(query)}&page=${page}&pageSize=10`);
+                const data = await response.json();
+
+                // Update results stats
+                resultsStats.textContent = `Found ${data.totalResults} results (${data.totalPages} pages)`;
+
+                // Clear previous results
+                resultsList.innerHTML = '';
+
+                // Add new results
+                data.pages.forEach(page => {
+                    const resultCard = document.createElement('div');
+                    resultCard.className = 'result-card bg-white p-6 rounded-lg shadow-sm hover:shadow-md';
+                    resultCard.innerHTML = `
+                        <a href="${page.url}" class="text-lg text-blue-600 hover:underline font-medium">${page.url}</a>
+                        <p class="text-gray-600 mt-2">${truncateText(page.content, 200)}</p>
+                    `;
+                    resultsList.appendChild(resultCard);
+                });
+
+                // Update pagination
+                updatePagination(data.totalPages, page);
+
+                // Show results
+                searchResults.style.opacity = '1';
+                searchContainer.classList.add('results-shown');
+
+            } catch (error) {
+                console.error('Search failed:', error);
+                resultsStats.textContent = 'An error occurred while searching. Please try again.';
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        function truncateText(text, maxLength) {
+            if (text.length <= maxLength) return text;
+            return text.substr(0, maxLength) + '...';
+        }
+
+        function updatePagination(totalPages, currentPage) {
+            pagination.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            // Previous button
+            if (currentPage > 1) {
+                addPaginationButton('Previous', currentPage - 1);
+            }
+
+            // Page numbers
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === currentPage) {
+                    addPaginationButton(i, i, true);
+                } else if (i <= 3 || i >= totalPages - 2 || Math.abs(i - currentPage) <= 1) {
+                    addPaginationButton(i, i);
+                } else if (Math.abs(i - currentPage) === 2) {
+                    addPaginationEllipsis();
+                }
+            }
+
+            // Next button
+            if (currentPage < totalPages) {
+                addPaginationButton('Next', currentPage + 1);
+            }
+        }
+
+        function addPaginationButton(text, page, isActive = false) {
+            const button = document.createElement('button');
+            button.textContent = text;
+            button.className = `px-3 py-1 rounded ${isActive ?
+                'bg-blue-600 text-white' :
+                'text-blue-600 hover:bg-blue-50'}`;
+            button.addEventListener('click', () => {
+                currentPage = page;
+                performSearch(searchInput.value, page);
+            });
+            pagination.appendChild(button);
+        }
+
+        function addPaginationEllipsis() {
+            const span = document.createElement('span');
+            span.textContent = '...';
+            span.className = 'px-2 text-gray-500';
+            pagination.appendChild(span);
+        }
+
+        // Event Listeners
+        searchButton.addEventListener('click', () => {
+            currentPage = 1;
+            performSearch(searchInput.value);
+        });
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                currentPage = 1;
+                performSearch(searchInput.value);
+            }
+        });
+    });
+</script>
 </body>
 </html>

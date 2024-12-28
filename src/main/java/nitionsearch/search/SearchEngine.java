@@ -13,11 +13,13 @@ public class SearchEngine {
     private final List<Page> pages;
     private final SuffixTrie suffixTrie;
     private final SearchCache searchCache;
+    private final QueryParser queryParser;
 
     public SearchEngine() {
         pages = new ArrayList<>();
         suffixTrie = new SuffixTrie();
         searchCache = new SearchCache(1000,3600000);
+        queryParser = new QueryParser();
     }
 
     public void addPage(Page page) {
@@ -38,75 +40,104 @@ public class SearchEngine {
     }
 
     public SearchResult search(String query, SearchOptions options) {
-        // Try cache first
         Optional<List<Page>> cachedResults = searchCache.get(query);
+        QueryParser.ParsedQuery parsedQuery = queryParser.parse(query);
+
+        List<Page> results;
         if (cachedResults.isPresent()) {
-            return paginateResults(cachedResults.get(), options);
+            results = cachedResults.get();
+        } else {
+            Map<Page, Integer> scores = calculateScores(parsedQuery);
+            results = rankPagesByScore(scores);
+            searchCache.put(query, results);
         }
 
-        // Perform search
-        String[] terms = preprocessQuery(query);
-        Map<Page, Integer> scores = terms.length == 1 ?
-                calculateSingleTermScores(terms) :
-                calculateMultiTermScores(terms);
+        // Convert Pages to SearchResultItems with snippets and highlights
+        List<SearchResultItem> resultItems = results.stream()
+                .map(page -> createResultItem(page, parsedQuery))
+                .collect(Collectors.toList());
 
-        List<Page> results = rankPagesByScore(scores);
-        searchCache.put(query, results);
-
-        return paginateResults(results, options);
+        return paginateResults(resultItems, options);
     }
 
-    private Map<Page, Integer> calculateSingleTermScores (String [] searchTerms){
+    private Map<Page, Integer> calculateScores(QueryParser.ParsedQuery parsedQuery) {
         Map<Page, Integer> scores = new HashMap<>();
 
-        for (Page page: pages){
-            List<TermOccurrence> occurrences = getTermOccurrences(page,searchTerms);
-            int score = calculateProximityScore(occurrences,searchTerms);
-            scores.put(page,score);
-        }
-        return scores;
-    }
-
-    private Map<Page, Integer> calculateMultiTermScores (String[] searchTerms) {
-        Map<Page, Integer> scores = new HashMap<>();
 
         for (Page page : pages) {
-            Set<String> pageTerms = getPageTerms(page, searchTerms);
-            int matchingTerms = (int) pageTerms.stream()
-                    .filter(Arrays.asList(searchTerms)::contains)
-                    .count();
+            int score = 0;
 
-            // Only consider pages with at least two matching terms
-            if (matchingTerms >= 2) {
-                List<TermOccurrence> occurrences = getTermOccurrences(page, searchTerms);
-                int score = calculateProximityScore(occurrences, searchTerms);
-
-                // Add bonus for exact phrase match
-                if (isExactPhraseMatch(page, searchTerms)) {
-                    score += 100;
+            if (!parsedQuery.getMustContain().isEmpty()) {
+                if (containsAllTerms(page, parsedQuery.getMustContain())) {
+                    score += calculateTermsScore(page, parsedQuery.getMustContain());
+                } else {
+                    continue;
                 }
+            }
 
+
+            if (!parsedQuery.getShouldContain().isEmpty()) {
+                score += calculateTermsScore(page, parsedQuery.getShouldContain());
+            }
+
+
+            if (containsAnyTerm(page, parsedQuery.getMustNotContain())) {
+                continue;
+            }
+
+            // Exact phrases
+            for (String phrase : parsedQuery.getExactPhrases()) {
+                if (containsExactPhrase(page, phrase)) {
+                    score += calculatePhraseScore(page, phrase);
+                }
+            }
+
+            if (score > 0) {
                 scores.put(page, score);
             }
         }
+
         return scores;
     }
 
-
-    private Set<String> getPageTerms(Page page, String[] terms) {
+    private boolean containsAllTerms(Page page, List<String> terms) {
         String content = page.getContent().toLowerCase();
-        String[] words = content.split("\\s+");
-        return Arrays.stream(words).collect(Collectors.toSet());
+        return terms.stream().allMatch(term -> content.contains(term.toLowerCase()));
     }
 
-
-
-    private boolean isExactPhraseMatch(Page page, String[] terms) {
+    private boolean containsAnyTerm(Page page, List<String> terms) {
         String content = page.getContent().toLowerCase();
-        String phrase = String.join(" ", terms).toLowerCase();
-
-        return content.contains(phrase);
+        return terms.stream().anyMatch(term -> content.contains(term.toLowerCase()));
     }
+
+    private boolean containsExactPhrase(Page page, String phrase) {
+        String content = page.getContent().toLowerCase();
+        return content.contains(phrase.toLowerCase());
+    }
+
+    private int calculateTermsScore(Page page, List<String> terms) {
+        List<TermOccurrence> occurrences = getTermOccurrences(page,
+                terms.toArray(new String[0]));
+        return calculateProximityScore(occurrences,
+                terms.toArray(new String[0]));
+    }
+
+    private int calculatePhraseScore(Page page, String phrase) {
+        // Give higher score for exact phrase matches
+        String content = page.getContent().toLowerCase();
+        String phraseLower = phrase.toLowerCase();
+
+        // Count occurrences of the exact phrase
+        int count = 0;
+        int index = 0;
+        while ((index = content.indexOf(phraseLower, index)) != -1) {
+            count++;
+            index += phraseLower.length();
+        }
+
+        return count * PROXIMITY_SCORE_BONUS * 2; // Double bonus for exact phrases
+    }
+
 
     private List<TermOccurrence> getTermOccurrences(Page page, String[] terms) {
         List<TermOccurrence> occurrences = new ArrayList<>();
@@ -251,20 +282,7 @@ public class SearchEngine {
         return results;
     }
 
-
-    private String[] preprocessQuery(String query) {
-        // Handle boolean operators
-        if (query.contains(" AND ")) {
-            return handleAndOperator(query);
-        } else if (query.contains(" OR ")) {
-            return handleOrOperator(query);
-        } else if (query.contains(" NOT ")) {
-            return handleNotOperator(query);
-        }
-        return query.toLowerCase().split("\\s+");
-    }
-
-    private SearchResult paginateResults(List<Page> results, SearchOptions options) {
+    private SearchResult paginateResults(List<SearchResultItem> results, SearchOptions options) {
         int start = (options.getPage() - 1) * options.getPageSize();
         int end = Math.min(start + options.getPageSize(), results.size());
 
@@ -295,34 +313,100 @@ public class SearchEngine {
         return Math.log(1 + avgFrequency);
     }
 
-    private String[] handleAndOperator(String query) {
-        String[] parts = query.split(" AND ");
-        Set<String> terms = new HashSet<>();
-        for (String part : parts) {
-            terms.addAll(Arrays.asList(part.trim().toLowerCase().split("\\s+")));
-        }
-        return terms.toArray(new String[0]);
-    }
-
-    private String[] handleOrOperator(String query) {
-        String[] parts = query.split(" OR ");
-        Set<String> terms = new HashSet<>();
-        for (String part : parts) {
-            terms.addAll(Arrays.asList(part.trim().toLowerCase().split("\\s+")));
-        }
-        return terms.toArray(new String[0]);
-    }
-
-    private String[] handleNotOperator(String query) {
-        String[] parts = query.split(" NOT ");
-        if (parts.length != 2) {
-            return query.toLowerCase().split("\\s+");
-        }
-        // consider the first part and exclude pages containing the second part
-        return parts[0].trim().toLowerCase().split("\\s+");
-    }
-
     public int getIndexedPagesCount() {
         return pages.size();
+    }
+
+
+    private SearchResultItem createResultItem(Page page, QueryParser.ParsedQuery query) {
+        String content = page.getContent();
+        List<String> allTerms = new ArrayList<>();
+        allTerms.addAll(query.getMustContain());
+        allTerms.addAll(query.getShouldContain());
+        allTerms.addAll(query.getExactPhrases());
+
+        // Generate snippet
+        String snippet = generateSnippet(content, allTerms);
+
+        // Get term frequencies
+        Map<String, Integer> frequencies = calculateTermFrequencies(content, allTerms);
+
+        // Get highlights
+        List<String> highlights = findBestMatches(content, allTerms);
+
+        return new SearchResultItem(page, snippet, highlights, frequencies);
+    }
+
+    private String generateSnippet(String content, List<String> terms) {
+        int snippetLength = 200;
+        String[] sentences = content.split("[.!?]+");
+
+        // Find best sentence containing most search terms
+        int maxTerms = 0;
+        String bestSentence = "";
+
+        for (String sentence : sentences) {
+            int termCount = 0;
+            for (String term : terms) {
+                if (sentence.toLowerCase().contains(term.toLowerCase())) {
+                    termCount++;
+                }
+            }
+            if (termCount > maxTerms) {
+                maxTerms = termCount;
+                bestSentence = sentence;
+            }
+        }
+
+        // If no good sentence found, take first part of content
+        if (bestSentence.isEmpty()) {
+            bestSentence = content.substring(0, Math.min(content.length(), snippetLength));
+        }
+
+        // Trim snippet to reasonable length
+        if (bestSentence.length() > snippetLength) {
+            int startIndex = Math.max(0, bestSentence.indexOf(terms.get(0)) - 50);
+            bestSentence = "..." + bestSentence.substring(startIndex,
+                    Math.min(startIndex + snippetLength, bestSentence.length())) + "...";
+        }
+
+        return bestSentence.trim();
+    }
+
+    private Map<String, Integer> calculateTermFrequencies(String content, List<String> terms) {
+        Map<String, Integer> frequencies = new HashMap<>();
+        String contentLower = content.toLowerCase();
+
+        for (String term : terms) {
+            String termLower = term.toLowerCase();
+            int count = 0;
+            int index = 0;
+            while ((index = contentLower.indexOf(termLower, index)) != -1) {
+                count++;
+                index += termLower.length();
+            }
+            frequencies.put(term, count);
+        }
+
+        return frequencies;
+    }
+
+    private List<String> findBestMatches(String content, List<String> terms) {
+        List<String> matches = new ArrayList<>();
+        String contentLower = content.toLowerCase();
+
+        for (String term : terms) {
+            String termLower = term.toLowerCase();
+            int index = contentLower.indexOf(termLower);
+            if (index != -1) {
+                // Get surrounding context
+                int start = Math.max(0, index - 20);
+                int end = Math.min(content.length(), index + term.length() + 20);
+                String match = content.substring(start, end);
+                matches.add(match);
+            }
+        }
+
+        return matches;
     }
 }

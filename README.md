@@ -52,7 +52,21 @@ Nition Search Engine is a Java-based search engine that provides web crawling, c
   - Admin interface for crawler control
   - Search statistics
 
+## Web Interface Screenshots
+
+### Home Page
+![Home Page](https://github.com/user-attachments/assets/ce7736fc-e7b0-411c-95db-c0499e24db90)
+
+### Search Results
+![Search Results](https://github.com/user-attachments/assets/6544a56e-f1e3-49dc-ab67-86e0fa16b65f)
+
+### Active Crawler View
+![Active Crawler](https://github.com/user-attachments/assets/2b01fcb9-8263-4a21-8f80-6f6ed84a339d)
+
+
+
 ## Setup and Installation
+
 
 ### Prerequisites
 

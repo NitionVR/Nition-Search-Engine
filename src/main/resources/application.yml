@@ -2,12 +2,13 @@ server:
   port: 8080
 
 crawler:
-  maxDepth: 5
+  maxDepth: 10
   threadCount: 4
   crawlDelayMillis: 1000
-  maxPagesPerDomain: 1000
-  userAgent: NitionBot/1.0
-  connectionTimeout: 5000
+  maxPagesPerDomain: 5000
+  userAgent: "Mozilla/5.0 (compatible; NitionBot/1.0; +http://localhost)"
+  connectionTimeout: 10000
+  maxRetries: 3
 
 spring:
   datasource:

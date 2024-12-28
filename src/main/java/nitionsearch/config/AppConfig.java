@@ -24,12 +24,13 @@ public class AppConfig {
     @Bean
     public CrawlerConfig crawlerConfig(CrawlerProperties properties) {
         return new CrawlerConfig.Builder()
-                .maxDepth(properties.getMaxDepth())
-                .threadCount(properties.getThreadCount())
-                .crawlDelay(Duration.ofMillis(properties.getCrawlDelayMillis()))
-                .maxPagesPerDomain(properties.getMaxPagesPerDomain())
-                .userAgent(properties.getUserAgent())
-                .connectionTimeout(properties.getConnectionTimeout())
+                .maxDepth(10)  // Override property for deeper crawling
+                .threadCount(4)
+                .crawlDelay(Duration.ofMillis(1000))
+                .maxPagesPerDomain(5000)  // Allow more pages per domain
+                .userAgent("Mozilla/5.0 (compatible; NitionBot/1.0; +http://localhost)")
+                .connectionTimeout(10000)  // Longer timeout
+                .maxRetries(3)            // Add retries
                 .build();
     }
 
@@ -39,7 +40,7 @@ public class AppConfig {
     }
 
     @Bean
-    public PageDAO pageDAO(){
+    public PageDAO pageDAO() {
         return new PageDAOImpl();
     }
 }

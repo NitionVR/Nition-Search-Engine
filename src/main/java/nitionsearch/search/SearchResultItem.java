@@ -27,4 +27,4 @@ public class SearchResultItem {
     public Map<String, Integer> getTermFrequencies() { return termFrequencies; }
 }
 
-// Add to SearchEngine class:
+

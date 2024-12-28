@@ -14,6 +14,7 @@ import nitionsearch.crawler.WebCrawler;
 import nitionsearch.crawler.CrawlerConfig;
 import nitionsearch.service.SearchService;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,46 +33,40 @@ public class SearchController {
         this.webCrawler = webCrawler;
     }
 
-    @GetMapping("/search")
-    public ResponseEntity<SearchResult> search(
+    @GetMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> search(
             @RequestParam String query,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(defaultValue = "RELEVANCE") String sortOrder) {
 
-        try {
-            // Safely convert string to enum
-            SortOrder sort = (sortOrder != null) ?
-                    SortOrder.valueOf(sortOrder.toUpperCase()) :
-                    SortOrder.RELEVANCE;
+        SearchOptions options = new SearchOptions.Builder()
+                .page(page)
+                .pageSize(pageSize)
+                .sortOrder(SortOrder.valueOf(sortOrder))
+                .build();
 
-            SearchOptions options = new SearchOptions.Builder()
-                    .page(page)
-                    .pageSize(pageSize)
-                    .sortOrder(sort)
-                    .build();
+        SearchResult results = searchService.search(query, options);
 
-            SearchResult results = searchService.search(query, options);
-            return ResponseEntity.ok(results);
-        } catch (IllegalArgumentException e) {
-            // Handle invalid sort order
-            SearchOptions options = new SearchOptions.Builder()
-                    .page(page)
-                    .pageSize(pageSize)
-                    .sortOrder(SortOrder.RELEVANCE)  // Default to RELEVANCE
-                    .build();
+        // Convert to format expected by frontend
+        Map<String, Object> response = new HashMap<>();
+        response.put("items", results.getItems());
+        response.put("totalResults", results.getTotalResults());
+        response.put("totalPages", results.getTotalPages());
 
-            SearchResult results = searchService.search(query, options);
-            return ResponseEntity.ok(results);
-        }
+        return ResponseEntity.ok(response);
     }
+
     @PostMapping("/crawl")
     public ResponseEntity<ApiResponse<Void>> startCrawling(@Valid @RequestBody CrawlRequest request) {
         try {
-            webCrawler.startCrawling(request.getUrl());
+            String url = request.getUrl();
+            System.out.println("Starting crawl for URL: " + url);
+            webCrawler.startCrawling(url);
             return ResponseEntity.ok(ApiResponse.success(
-                    "Crawling started for URL: " + request.getUrl(), null));
+                    "Crawling started for URL: " + url, null));
         } catch (Exception e) {
+            e.printStackTrace();  // Add stack trace
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Failed to start crawling: " + e.getMessage()));
         }

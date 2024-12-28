@@ -39,4 +39,11 @@ public class CrawlMetrics {
         stats.put("errors", new HashMap<>(errorCounts));
         return stats;
     }
+
+    public void reset() {
+        processedPages.set(0);
+        failedPages.set(0);
+        responseCodeCounts.clear();
+        errorCounts.clear();
+    }
 }

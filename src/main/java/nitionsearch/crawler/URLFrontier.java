@@ -14,8 +14,7 @@ public class URLFrontier {
     private final CrawlerConfig config;
 
     public URLFrontier(CrawlerConfig config) {
-        this.urlQueue = new PriorityBlockingQueue<>(1000,
-                Comparator.comparingInt(CrawlURL::getDepth));
+        this.urlQueue = new ConcurrentLinkedQueue<>();
         this.visitedUrls = Collections.synchronizedSet(new HashSet<>());
         this.domainPageCounts = new ConcurrentHashMap<>();
         this.lastAccessTimes = new ConcurrentHashMap<>();
@@ -23,92 +22,49 @@ public class URLFrontier {
     }
 
     public void addURL(String url, int depth) {
-        try {
-            URL parsedUrl = new URL(url);
-            String domain = parsedUrl.getHost();
-            String normalizedUrl = normalizeURL(url);
-
-            if (canCrawl(normalizedUrl, domain, depth)) {
-                urlQueue.offer(new CrawlURL(normalizedUrl, depth));
-            }
-        } catch (Exception e) {
-            // Log invalid URL
+        System.out.println("Adding URL to frontier: " + url + " at depth " + depth);
+        if (!visitedUrls.contains(url)) {
+            urlQueue.offer(new CrawlURL(url, depth));
+            System.out.println("URL added successfully to queue");
+        } else {
+            System.out.println("URL already visited, skipping: " + url);
         }
     }
 
     public CrawlURL getNextURL() {
-        CrawlURL nextUrl = null;
-        while (nextUrl == null && !urlQueue.isEmpty()) {
-            CrawlURL candidate = urlQueue.poll();
-            if (candidate == null) continue;
-
-            String domain = getDomain(candidate.getUrl());
-            if (domain == null) continue;
-
-            Instant lastAccess = lastAccessTimes.get(domain);
-            if (lastAccess != null) {
-                Duration waitTime = Duration.between(lastAccess, Instant.now());
-                if (waitTime.compareTo(config.getCrawlDelay()) < 0) {
-                    // Re-queue the URL if we need to wait
-                    urlQueue.offer(candidate);
-                    continue;
-                }
-            }
-
-            nextUrl = candidate;
-            lastAccessTimes.put(domain, Instant.now());
+        CrawlURL nextUrl = urlQueue.poll();
+        if (nextUrl != null) {
+            System.out.println("Retrieved URL from frontier: " + nextUrl.getUrl());
+        } else {
+            System.out.println("No URLs available in queue");
         }
         return nextUrl;
     }
 
-    private boolean canCrawl(String url, String domain, int depth) {
-        if (visitedUrls.contains(url)) return false;
-        if (depth > config.getMaxDepth()) return false;
-
-        int pageCount = domainPageCounts.getOrDefault(domain, 0);
-        if (pageCount >= config.getMaxPagesPerDomain()) return false;
-
-        if (!config.getAllowedDomains().isEmpty() &&
-                !config.getAllowedDomains().contains(domain)) return false;
-
-        return true;
-    }
-
     public void markVisited(String url) {
-        String normalizedUrl = normalizeURL(url);
-        visitedUrls.add(normalizedUrl);
-
-        String domain = getDomain(url);
-        if (domain != null) {
-            domainPageCounts.merge(domain, 1, Integer::sum);
-        }
+        visitedUrls.add(url);
+        String domain = extractDomain(url);
+        domainPageCounts.merge(domain, 1, Integer::sum);
     }
 
-    private String normalizeURL(String url) {
-        // Remove trailing slash, fragment, etc.
-        return url.replaceAll("/$", "")
-                .replaceAll("#.*", "")
-                .replaceAll("\\?$", "");
-    }
-
-    private String getDomain(String url) {
-        try {
-            return new URL(url).getHost();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    public boolean hasMoreURLs() {
-        return !urlQueue.isEmpty();
+    public void clear() {
+        urlQueue.clear();
+        visitedUrls.clear();
+        domainPageCounts.clear();
+        lastAccessTimes.clear();
     }
 
     public int getQueueSize() {
         return urlQueue.size();
     }
 
-    public Map<String, Integer> getDomainStatistics() {
-        return new HashMap<>(domainPageCounts);
+    private String extractDomain(String url) {
+        try {
+            String host = new URL(url).getHost();
+            return host.startsWith("www.") ? host.substring(4) : host;
+        } catch (Exception e) {
+            return "";
+        }
     }
 }
 

@@ -16,4 +16,7 @@ public class SearchResult {
         this.totalPages = totalPages;
     }
 
+    public List<SearchResultItem> getItems() { return items; }
+    public int getTotalResults() { return totalResults; }
+    public int getTotalPages() { return totalPages; }
 }

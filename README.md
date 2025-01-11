@@ -1,6 +1,4 @@
 # NitionSearch
-
-## Overview
 Nition Search Engine is a Java-based search engine that provides web crawling, content indexing, and efficient search capabilities. It features proximity-based ranking, multi-threaded crawling, and a modern web interface.
 
 ---

@@ -23,18 +23,18 @@ public class WebCrawler {
     private String baseDomain;
     private static final int QUEUE_CHECK_INTERVAL = 1000; // 1 second
 
-    public WebCrawler(SearchEngine searchEngine, CrawlerConfig config) {
+    public WebCrawler(SearchEngine searchEngine, CrawlerConfig config, ExecutorService executorService) {
         this.searchEngine = searchEngine;
         this.config = config;
         this.frontier = new URLFrontier(config);
-        this.executorService = createExecutorService();
+        this.executorService = executorService;
         this.isRunning = new AtomicBoolean(false);
         this.robotsTxtManager = new RobotsTxtManager(config);
         this.metrics = new CrawlMetrics();
     }
 
-    private ExecutorService createExecutorService() {
-        return Executors.newFixedThreadPool(config.getThreadCount());
+    public WebCrawler(SearchEngine searchEngine, CrawlerConfig config) {
+        this(searchEngine, config, Executors.newFixedThreadPool(config.getThreadCount()));
     }
 
     public void startCrawling(String seedUrl) {
@@ -53,7 +53,7 @@ public class WebCrawler {
 
         // Ensure executor service is running
         if (executorService == null || executorService.isShutdown()) {
-            executorService = createExecutorService();
+            executorService = Executors.newFixedThreadPool(config.getThreadCount());
         }
 
         // Start crawler threads
@@ -223,13 +223,14 @@ public class WebCrawler {
                 Thread.currentThread().interrupt();
             }
         }
-
-        // Create new executor service for future use
-        executorService = createExecutorService();
     }
 
     public CrawlMetrics getMetrics() {
         return metrics;
+    }
+
+    public ExecutorService getExecutorService() {
+        return executorService;
     }
 
     public boolean isRunning() {
